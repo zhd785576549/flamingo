@@ -1,4 +1,5 @@
 from flamingo.io import response
+from flamingo.urlconf import url
 
 
 class RequestParams:
@@ -10,6 +11,7 @@ class Request:
 
     def __init__(self, *args, **kwargs):
         self.params = RequestParams()
+        self.router_mapper = url.RouterMapper()
 
     def load_scope(self, scope: dict):
         self.params.req_type = scope.get("type")
@@ -22,6 +24,9 @@ class Request:
 
 class RequestHandler:
     request_class = Request
+
+    def __init__(self):
+        self.router_mapper = url.RouterMapper()
 
     async def __call__(self, scope, receive, send):
         """
