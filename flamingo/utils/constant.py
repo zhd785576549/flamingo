@@ -1,0 +1,5 @@
+class HttpStatus:
+    HTTP_OK = 200
+    HTTP_PAGE_NOT_FOUND = 404
+    HTTP_METHOD_DENIED = 405
+    HTTP_INTERVAL_ERROR = 500

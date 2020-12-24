@@ -13,7 +13,6 @@ def find_commands(command_dir):
     :param command_dir: Command module dir
     """
     command_dir = os.path.join(command_dir, 'sub_commands')
-    print(command_dir)
     return [name for _, name, is_pkg in pkgutil.iter_modules([command_dir])
             if not is_pkg and not name.startswith('_')]
 
