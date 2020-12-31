@@ -1,5 +1,4 @@
 from werkzeug.local import LocalStack
-from werkzeug.local import LocalProxy
 from flamingo.utils import exc
 
 
@@ -16,21 +15,17 @@ class GlobalContext:
             "request": self.__req_ctx_stack
         }
 
-    def pop_stack(self, name, identity="app"):
+    def pop_stack(self, identity="app"):
         """
         获取线程安全的对象
 
-        :param name: 对象名称
         :param identity: 对象标识 app是应用，request是请求对象，其他值错误
         :return:
         """
         stack = self.__object_stack_dict.get(identity)
         if stack is None:
             raise exc.CoreError(f"Unknown identity name {identity}")
-        top = stack.top
-        if top is None:
-            raise exc.CoreError(f"Stack cannot find {name}")
-        return getattr(top, name)
+        stack.pop()
 
     def current_app(self):
         """
@@ -40,7 +35,7 @@ class GlobalContext:
         top = self.__app_ctx_stack.top
         if top is None:
             raise exc.CoreError(f"Current app is empty.")
-        return LocalProxy(top)
+        return top
 
     def push_stack(self, obj, identity):
         """

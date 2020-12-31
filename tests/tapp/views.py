@@ -1,10 +1,15 @@
+from flamingo.core import g
 
-def test(request):
+app = g.g_context.current_app()
+
+
+async def test(request):
     print(request.path)
     return "aaaa"
 
 
-def params_test(request, *args, **kwargs):
+async def params_test(request, *args, **kwargs):
     print(kwargs)
     print(args)
+    print(app.settings)
     return "test finish!"

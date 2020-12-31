@@ -92,7 +92,7 @@ class Request(BaseRequest):
         # 请求主机IP或者HOST名称
         self.host = scope_ins.server[0]
 
-    def do_request(self):
+    async def do_request(self):
         """
         执行请求，并且返回对应的数据
         :return:
@@ -101,7 +101,7 @@ class Request(BaseRequest):
         view_func, kwargs, args, find = self.get_app().router_adapter.test(path=self.path)
         if view_func:  # 执行对应的方法，并且返回对应的数据
             if callable(view_func):
-                resp = view_func(self, *args, **kwargs)
+                resp = await view_func(self, *args, **kwargs)
                 if isinstance(resp, str):
                     return response.HttpResponse(content=resp).encode()
                 elif isinstance(resp, dict):
@@ -117,6 +117,11 @@ class Request(BaseRequest):
         top = g.g_context.cur_stack(identity=g.GlobalContext.REQ_IDENTIFY)
         if top is not None and top.preserved:
             top.pop(top._preserved_exc)
+
+        _app = g.g_context.cur_stack(identity=g.GlobalContext.APP_IDENTIFY)
+        if _app is None or _app != self.get_app():
+            g.g_context.push_stack(self.get_app(), identity=g.GlobalContext.APP_IDENTIFY)
+
         g.g_context.push_stack(self, identity=g.GlobalContext.REQ_IDENTIFY)
 
     def pop(self):
