@@ -3,6 +3,7 @@ from flamingo.core import g
 from flamingo.io import response
 from flamingo.utils import functions
 from flamingo.utils import exc
+from flamingo.utils import constant
 
 
 class Scope:
@@ -52,22 +53,25 @@ class Request(BaseRequest):
         self.preserved = False
         self._preserved_exc = None
 
-    def load_data(self, data):
+    async def load_data(self, data, recv=None):
         """
         加载Scope数据
         :param data: [dict] 等待加载的数据
+        :param recv: 接收的数据
         :return:
         """
-        self.__trans_scope_to_request(data)
+        await self.__trans_scope_to_request(data, recv)
         return self
 
-    def __trans_scope_to_request(self, scope):
+    async def __trans_scope_to_request(self, scope, recv=None):
         """
         将Uvicorn的数据转换成request的内部数据
 
         :param scope: [dict] Uvicorn的请求数据
+        :param recv: 接受数据
         :return:
         """
+        print(scope)
         scope_ins = Scope.from_dict(scope=scope)
         # 请求类型 http
         self.req_type = scope_ins.type
@@ -77,10 +81,9 @@ class Request(BaseRequest):
         self.path = scope_ins.path
         self.root_path = scope_ins.root_path
         self.raw_path = scope_ins.raw_path
-        # 请求数据
-        self.data = functions.trans_str_to_dict(scope_ins.data)
-        self.params = functions.trans_str_to_dict(scope_ins.query_string)
-        self.files = functions.trans_str_to_dict(scope_ins.files)
+
+        self.params = functions.trans_params_to_dict(scope_ins.query_string)
+        # self.files = functions.trans_str_to_dict(scope_ins.files)
         # 请求头 和 请求Cookie
         self.headers = functions.trans_headers(scope_ins.headers)
         # 请求的http版本号
@@ -91,6 +94,11 @@ class Request(BaseRequest):
         self.client_ip = scope_ins.client[0]
         # 请求主机IP或者HOST名称
         self.host = scope_ins.server[0]
+
+        # 请求数据
+        if self.method.upper in [constant.RequestMethod.RM_POST, constant.RequestMethod.RM_PUT]:
+            self.data = functions.trans_body_data(await functions.read_body(recv),
+                                                  content_type=self.headers.get("content-type"))
 
     async def do_request(self):
         """

@@ -1,7 +1,5 @@
 from flamingo.core import g
 
-app = g.g_context.current_app()
-
 
 async def test(request):
     print(request.path)
@@ -11,5 +9,8 @@ async def test(request):
 async def params_test(request, *args, **kwargs):
     print(kwargs)
     print(args)
-    print(app.settings)
+    print("Request params : ", request.params)
+    print("Request data: ", request.data)
+    print("Request files: ", request.files)
+    print(g.g_context.current_app().settings.DEBUG)
     return "test finish!"

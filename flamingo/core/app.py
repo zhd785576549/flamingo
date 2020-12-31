@@ -160,7 +160,7 @@ class Flamingo:
         :return:
         """
         # 加载请求数据
-        request = self.request_class(self).load_data(data=scope)
+        request = await self.request_class(self).load_data(data=scope, recv=receive)
         # 压入队列
         request.push()
         # 处理请求数据
