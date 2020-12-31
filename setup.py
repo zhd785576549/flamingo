@@ -18,7 +18,6 @@ setup(
     },
     install_requires=[
         "uvicorn",
-        "sqlalchemy",
         "bidict",
         "werkzeug",
     ],
