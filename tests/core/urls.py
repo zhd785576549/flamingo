@@ -1,6 +1,6 @@
-from flamingo.url.url_conf import url
+from flamingo.url.conf import path
 
 
 routers = [
-    url(path="/test", view_func="tapp.urls", name="test")
+    path(url="/test", view_func_or_module="tapp.urls", name="test")
 ]

@@ -1,3 +1,4 @@
+from werkzeug.exceptions import NotFound
 from flamingo.core import app
 from flamingo.core import g
 from flamingo.io import response
@@ -52,6 +53,7 @@ class Request(BaseRequest):
         super(Request, self).__init__(application=application, **kwargs)
         self.preserved = False
         self._preserved_exc = None
+        self.__url_adapter = None
 
     async def load_data(self, data, recv=None):
         """
@@ -71,7 +73,6 @@ class Request(BaseRequest):
         :param recv: 接受数据
         :return:
         """
-        print(scope)
         scope_ins = Scope.from_dict(scope=scope)
         # 请求类型 http
         self.req_type = scope_ins.type
@@ -100,26 +101,47 @@ class Request(BaseRequest):
             self.data = functions.trans_body_data(await functions.read_body(recv),
                                                   content_type=self.headers.get("content-type"))
 
+        # 初始化 SERVER_NAME，如果没有设置SERVER_NAME，那么默认使用HOST:PORT作为SERVER_NAME
+        if self.get_app().settings.SERVER_NAME is None:
+            self.get_app().settings.SERVER_NAME = f"{scope_ins.server[0]}:{scope_ins.server[1]}"
+
+        # 初始化路由适配
+        mapper = self.get_app().router_mapper.mapper
+        self.__url_adapter = self.get_app().router_mapper.mapper.bind(
+            server_name=self.get_app().settings.SERVER_NAME,
+            subdomain=mapper.default_subdomain or None,
+            url_scheme=self.scheme,
+            query_args=self.params,
+            path_info=self.path
+        )
+
     async def do_request(self):
         """
         执行请求，并且返回对应的数据
         :return:
         """
         # 获取URL MAPPING路由对应的View类
-        view_func, kwargs, args, find = self.get_app().router_adapter.test(path=self.path)
-        if view_func:  # 执行对应的方法，并且返回对应的数据
-            if callable(view_func):
-                resp = await view_func(self, *args, **kwargs)
-                if isinstance(resp, str):
-                    return response.HttpResponse(content=resp).encode()
-                elif isinstance(resp, dict):
-                    return response.JsonResponse(content=resp).encode()
-                elif isinstance(resp, response.BaseResponse):
-                    return resp
+        try:
+            name, args = self.__url_adapter.match()
+            view_func = self.get_app().router_mapper.get_view_func(name=name)
+            if view_func:  # 执行对应的方法，并且返回对应的数据
+                if callable(view_func):
+                    resp = await view_func(self, *args)
+                    if isinstance(resp, str):
+                        return response.HttpResponse(content=resp).encode()
+                    elif isinstance(resp, dict):
+                        return response.JsonResponse(content=resp).encode()
+                    elif isinstance(resp, response.BaseResponse):
+                        return resp
+                else:
+                    # 视图方法不能被执行
+                    raise exc.ViewError("View func is an unknown type object.")
             else:
-                raise exc.ViewError("View func is an unknown type object.")
-        else:  # 未找到返回404状态
-            raise exc.PageNotFoundError
+                # 未找到对应的视图方法
+                raise exc.ViewError()
+        except NotFound as e:
+            # 未找到对应的路由
+            raise exc.PageNotFoundError(e)
 
     def push(self):
         top = g.g_context.cur_stack(identity=g.GlobalContext.REQ_IDENTIFY)

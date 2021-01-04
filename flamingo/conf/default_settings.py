@@ -7,6 +7,8 @@ PLUGINS = {
     "db": "flamingo.plugins.db.sqlalchemy:FlamingoSqlalchemy"
 }
 
+SERVER_NAME = None
+
 MIDDLEWARES = []
 
 # Application list

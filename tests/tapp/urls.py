@@ -1,8 +1,8 @@
 from . import views
-from flamingo.url.url_conf import url
+from flamingo.url.conf import path
 
 
 routers = [
-    url(path="/aaaa", view_func=views.test, name="test_aaaa"),
-    url(path="/params/<int:id>/", view_func=views.params_test)
+    path(url="/aaaa", view_func_or_module=views.test, name="test_aaaa"),
+    path(url="/params/<int:id>/", view_func_or_module=views.params_test)
 ]

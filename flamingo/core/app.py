@@ -7,15 +7,14 @@ from flamingo.utils import functions
 from flamingo.utils import wrap_funcs
 from flamingo.utils import exc
 from flamingo.utils import constant
-from flamingo.url import url_conf
-from flamingo.url import adapter
+from flamingo.url import mapper
 from flamingo.io import response
 from flamingo.plugins import base
 
 
 class Flamingo:
     """
-    Flamingo（火烈鸟）应用类
+    Flamingo（火烈鸟）
 
     :param load_plugins: 是否加载配置中的插件
     :param load_middlewares: 是否加载配置中的中间件
@@ -31,10 +30,7 @@ class Flamingo:
         self.response_class = None
 
         # 初始化路由表
-        self.router_mapper = url_conf.UrlMapper()
-
-        # 初始化路由适配器
-        self.router_adapter = adapter.RegexUrlAdapter(url_mapper=self.router_mapper)
+        self.router_mapper = mapper.RouterMapper()
 
         # Settings
         self.settings = None
@@ -64,8 +60,7 @@ class Flamingo:
         self.settings = settings
 
         # 加载路由
-        self.router_mapper.build_url_mapper(url_module_path=settings.CONF_URL)
-        # self.router_mapper.display_url_mapper()
+        self.router_mapper.load_url_from_conf(self.settings.CONF_URL)
 
         # 加载插件
         if self.load_plugins:
@@ -174,3 +169,10 @@ class Flamingo:
             "type": "http.response.body",
             "body": resp.content,
         })
+
+    def get_router_mapper(self):
+        """
+        获取路由表
+        :return:
+        """
+        return self.router_mapper
