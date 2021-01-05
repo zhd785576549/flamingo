@@ -128,9 +128,9 @@ class Request(BaseRequest):
                 if callable(view_func):
                     resp = await view_func(self, **args)
                     if isinstance(resp, str):
-                        return response.HttpResponse(content=resp).encode()
+                        return response.HttpResponse(content=resp)
                     elif isinstance(resp, dict):
-                        return response.JsonResponse(content=resp).encode()
+                        return response.JsonResponse(content=resp)
                     elif isinstance(resp, response.BaseResponse):
                         return resp
                 else:

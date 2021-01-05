@@ -13,7 +13,7 @@ class BaseView:
                 func = getattr(self, request.method.lower())
                 if callable(func):
                     # 调用中间件对请求进行操作
-                    middlewares = request.application.middlewares
+                    middlewares = request.get_app().middlewares
                     for middleware in middlewares:
                         request = middleware.before_request(request=request)
                     # 执行用户请求
@@ -30,7 +30,7 @@ class BaseView:
             raise exc.ViewError(f"Method {request.method} not allowed")
 
     @classmethod
-    def as_view(cls, **init_kwargs):
+    def as_view(cls, *args, **init_kwargs):
         def view(request, *args, **kwargs):
             self = cls(**init_kwargs)
             return self.dispatch_method(request, *args, **kwargs)
