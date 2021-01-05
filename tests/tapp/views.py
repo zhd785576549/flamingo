@@ -6,10 +6,12 @@ async def test(request):
     return "aaaa"
 
 
-async def params_test(request, *args, **kwargs):
-    print(kwargs)
-    print(args)
+async def params_test(request, **kwargs):
+    print("Request path params : ", kwargs)
     print("Request params : ", request.params)
     print("Request data: ", request.data)
     print("Request files: ", request.files)
-    return "test finish!"
+    return {
+        "code": 100200,
+        "message": "Test OK"
+    }

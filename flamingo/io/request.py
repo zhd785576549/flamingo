@@ -126,7 +126,7 @@ class Request(BaseRequest):
             # 执行对应的方法，并且返回对应的数据
             if view_func:
                 if callable(view_func):
-                    resp = await view_func(self, *args)
+                    resp = await view_func(self, **args)
                     if isinstance(resp, str):
                         return response.HttpResponse(content=resp).encode()
                     elif isinstance(resp, dict):

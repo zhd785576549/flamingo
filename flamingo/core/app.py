@@ -142,7 +142,6 @@ class Flamingo:
         except Exception as e:
             resp = response.HttpResponse(content=str(e), status=constant.HttpStatus.HTTP_INTERVAL_ERROR)
         finally:
-            resp.encode()
             return resp
 
     async def __call__(self, scope=None, receive=None, send=None):
