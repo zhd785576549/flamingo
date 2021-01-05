@@ -1,3 +1,6 @@
+from flamingo.utils import functions
+
+
 class Path:
     """
     路径信息类
@@ -9,7 +12,7 @@ class Path:
 
     def __init__(self, url=None, name=None, view_func_or_module=None):
         self.__url = url
-        self.__name = view_func_or_module.__name__ if view_func_or_module and callable(view_func_or_module) else name
+        self.__name = functions.get_url_name(view_func=view_func_or_module, name=name)
         self.__view_or_mod = view_func_or_module
 
     @property

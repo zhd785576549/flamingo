@@ -1,8 +1,9 @@
 from importlib import import_module
 import json
+import re
 from urllib import parse
 from flamingo.utils import exc
-from flamingo.utils import trans
+from flamingo.utils import parser
 
 
 def import_module_string(mod_str: str):
@@ -62,37 +63,28 @@ async def read_body(receive):
     return body
 
 
-def trans_body_data(data, content_type, decoding="UTF-8"):
+async def trans_body_data(receiver, headers, decoding="UTF-8"):
     """
     将请求的数据转换成字典数据
-    :param data: 从body过来的数据
-    :param content_type: 内容类型
+    :param receiver: 数据流
+    :param headers: 请求头数据
     :param decoding: 解码方式
     :return:
     """
-    boundary = None
-    if data:
-        return trans.get_trans_dict(content_type=content_type, boundary=boundary,
-                                    decoding=decoding, data=data)
+    if receiver:
+        return await parser.FormParser(headers=headers, charset=decoding, receiver=receiver).parse()
     else:
         return None
 
 
-def trans_params_to_dict(b_data, decoding="UTF-8"):
+def trans_params_to_dict(scope_ins, decoding="UTF-8"):
     """
     将字节的query_string转换成字典类型
-    :param b_data: 字节原始参数
+    :param scope_ins: 字节原始参数
     :param decoding: 编码格式
     :return:
     """
-    if b_data:
-        s_data = b_data.decode(decoding)
-        params_list = s_data.split("&")
-        param_dict = {}
-        for param_item in params_list:
-            param_tuple = param_item.split("=")
-            param_dict[param_tuple[0]] = parse.unquote(param_tuple[1])
-        return param_dict
+    return parser.ParseQueryParser(scope=scope_ins, charset=decoding).parse()
 
 
 def get_url_name(view_func, name):

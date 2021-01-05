@@ -82,9 +82,8 @@ class Request(BaseRequest):
         self.path = scope_ins.path
         self.root_path = scope_ins.root_path
         self.raw_path = scope_ins.raw_path
-
-        self.params = functions.trans_params_to_dict(scope_ins.query_string)
-        # self.files = functions.trans_str_to_dict(scope_ins.files)
+        # 路由参数
+        self.params = functions.trans_params_to_dict(scope_ins)
         # 请求头 和 请求Cookie
         self.headers = functions.trans_headers(scope_ins.headers)
         # 请求的http版本号
@@ -96,10 +95,9 @@ class Request(BaseRequest):
         # 请求主机IP或者HOST名称
         self.host = scope_ins.server[0]
 
-        # 请求数据
-        if self.method.upper in [constant.RequestMethod.RM_POST, constant.RequestMethod.RM_PUT]:
-            self.data = functions.trans_body_data(await functions.read_body(recv),
-                                                  content_type=self.headers.get("content-type"))
+        # 解析请求数据
+        if self.method.upper() in [constant.RequestMethod.RM_POST, constant.RequestMethod.RM_PUT]:
+            stream, self.data, self.files = await functions.trans_body_data(receiver=recv, headers=self.headers)
 
         # 初始化 SERVER_NAME，如果没有设置SERVER_NAME，那么默认使用HOST:PORT作为SERVER_NAME
         if self.get_app().settings.SERVER_NAME is None:
@@ -120,11 +118,13 @@ class Request(BaseRequest):
         执行请求，并且返回对应的数据
         :return:
         """
-        # 获取URL MAPPING路由对应的View类
         try:
+            # 匹配理由表
             name, args = self.__url_adapter.match()
+            # 获取视图方法
             view_func = self.get_app().router_mapper.get_view_func(name=name)
-            if view_func:  # 执行对应的方法，并且返回对应的数据
+            # 执行对应的方法，并且返回对应的数据
+            if view_func:
                 if callable(view_func):
                     resp = await view_func(self, *args)
                     if isinstance(resp, str):

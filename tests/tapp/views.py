@@ -12,5 +12,4 @@ async def params_test(request, *args, **kwargs):
     print("Request params : ", request.params)
     print("Request data: ", request.data)
     print("Request files: ", request.files)
-    print(g.g_context.current_app().settings.DEBUG)
     return "test finish!"
