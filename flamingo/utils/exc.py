@@ -24,3 +24,7 @@ class ImproperlyConfigured(FlamingoError):
 
 class CoreError(FlamingoError):
     pass
+
+
+class CommandError(FlamingoError):
+    pass

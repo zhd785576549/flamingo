@@ -1,0 +1,21 @@
+DEBUG = True
+
+PLUGINS = {}
+
+SERVER_NAME = None
+
+MIDDLEWARES = []
+
+# Application list
+INSTALLED_APPS = []
+
+# Root configure url module path
+CONF_URL = "core.urls"
+
+# Secret key for generating password
+SECRET_KEY = ""
+
+REQUEST_CLASS = "flamingo.io.request:Request"
+
+
+RESPONSE_CLASS = "flamingo.io.response:Response"

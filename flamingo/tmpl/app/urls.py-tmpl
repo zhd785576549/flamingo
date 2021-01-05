@@ -1,0 +1,5 @@
+from flamingo.url.conf import path
+
+routers = [
+    # path("/test", test, name="test")
+]
