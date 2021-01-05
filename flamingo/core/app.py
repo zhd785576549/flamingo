@@ -7,14 +7,14 @@ from flamingo.utils import functions
 from flamingo.utils import wrap_funcs
 from flamingo.utils import exc
 from flamingo.utils import constant
-from flamingo.url import url_conf
-from flamingo.url import adapter
+from flamingo.url import mapper
 from flamingo.io import response
+from flamingo.plugins import base
 
 
 class Flamingo:
     """
-    Flamingo（火烈鸟）应用类
+    Flamingo（火烈鸟）
 
     :param load_plugins: 是否加载配置中的插件
     :param load_middlewares: 是否加载配置中的中间件
@@ -26,17 +26,11 @@ class Flamingo:
         # Request class
         self.request_class = None
 
-        # Plugins load from settings
-        self.plugins = {}
-
         # Response class
         self.response_class = None
 
         # 初始化路由表
-        self.router_mapper = url_conf.UrlMapper()
-
-        # 初始化路由适配器
-        self.router_adapter = adapter.RegexUrlAdapter(url_mapper=self.router_mapper)
+        self.router_mapper = mapper.RouterMapper()
 
         # Settings
         self.settings = None
@@ -59,10 +53,6 @@ class Flamingo:
         ins = cls(load_plugins=load_plugins, load_middlewares=load_middlewares)
         # 初始化应用
         ins.init_app()
-        # 设置全局app对象
-        global current_app
-        current_app = ins
-
         return ins
 
     def init_app(self):
@@ -70,8 +60,7 @@ class Flamingo:
         self.settings = settings
 
         # 加载路由
-        self.router_mapper.build_url_mapper(url_module_path=settings.CONF_URL)
-        # self.router_mapper.display_url_mapper()
+        self.router_mapper.load_url_from_conf(self.settings.CONF_URL)
 
         # 加载插件
         if self.load_plugins:
@@ -84,18 +73,7 @@ class Flamingo:
         # 加载请求类
         self.request_class = functions.load_class(self.settings.REQUEST_CLASS)
 
-        # 加载相应类
-        # self.response_class = functions.load_class(self.settings.RESPONSE_CLASS)
-
         self._before_first_request = True
-
-    def get_plugin_ins(self, name):
-        """
-        获取插件对象
-        :param name: [str] 插件名称
-        :return: [Object] 插件对象
-        """
-        return self.plugins.get(name)
 
     def __load_middlewares_from_settings(self):
         """
@@ -136,13 +114,13 @@ class Flamingo:
         :return:
         """
         if issubclass(plugin_cls, plugin_base.BasePlugin):
-            if name in self.plugins.keys():
+            if name in base.plugins.keys():
                 pass
             if hasattr(self.settings, f"plugin_{name}_settings".upper()):
                 plugin_settings = getattr(self.settings, f"plugin_{name}_settings".upper())
             else:
                 plugin_settings = {}
-            self.plugins[name] = plugin_cls().setup(**plugin_settings)
+            base.plugins[name] = plugin_cls().setup(**plugin_settings)
 
     async def all_dispatch_request(self):
         """
@@ -154,7 +132,7 @@ class Flamingo:
             raise exc.CoreError("Current request is None.")
         resp = None
         try:
-            resp = request.do_request()
+            resp = await request.do_request()
         except exc.PageNotFoundError as e:
             resp = response.HttpResponse(content=str(e), status=constant.HttpStatus.HTTP_PAGE_NOT_FOUND)
         except exc.CoreError as e:
@@ -164,10 +142,9 @@ class Flamingo:
         except Exception as e:
             resp = response.HttpResponse(content=str(e), status=constant.HttpStatus.HTTP_INTERVAL_ERROR)
         finally:
-            resp.encode()
             return resp
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope=None, receive=None, send=None):
         """
         自动调用方法，为了此方法适配了uvicorn服务框架使用
 
@@ -177,7 +154,7 @@ class Flamingo:
         :return:
         """
         # 加载请求数据
-        request = self.request_class(self).load_data(data=scope)
+        request = await self.request_class(self).load_data(data=scope, recv=receive)
         # 压入队列
         request.push()
         # 处理请求数据
@@ -191,3 +168,10 @@ class Flamingo:
             "type": "http.response.body",
             "body": resp.content,
         })
+
+    def get_router_mapper(self):
+        """
+        获取路由表
+        :return:
+        """
+        return self.router_mapper

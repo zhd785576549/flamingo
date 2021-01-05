@@ -1,8 +1,10 @@
+from werkzeug.exceptions import NotFound
 from flamingo.core import app
 from flamingo.core import g
 from flamingo.io import response
 from flamingo.utils import functions
 from flamingo.utils import exc
+from flamingo.utils import constant
 
 
 class Scope:
@@ -51,21 +53,24 @@ class Request(BaseRequest):
         super(Request, self).__init__(application=application, **kwargs)
         self.preserved = False
         self._preserved_exc = None
+        self.__url_adapter = None
 
-    def load_data(self, data):
+    async def load_data(self, data, recv=None):
         """
         加载Scope数据
         :param data: [dict] 等待加载的数据
+        :param recv: 接收的数据
         :return:
         """
-        self.__trans_scope_to_request(data)
+        await self.__trans_scope_to_request(data, recv)
         return self
 
-    def __trans_scope_to_request(self, scope):
+    async def __trans_scope_to_request(self, scope, recv=None):
         """
         将Uvicorn的数据转换成request的内部数据
 
         :param scope: [dict] Uvicorn的请求数据
+        :param recv: 接受数据
         :return:
         """
         scope_ins = Scope.from_dict(scope=scope)
@@ -77,10 +82,8 @@ class Request(BaseRequest):
         self.path = scope_ins.path
         self.root_path = scope_ins.root_path
         self.raw_path = scope_ins.raw_path
-        # 请求数据
-        self.data = functions.trans_str_to_dict(scope_ins.data)
-        self.params = functions.trans_str_to_dict(scope_ins.query_string)
-        self.files = functions.trans_str_to_dict(scope_ins.files)
+        # 路由参数
+        self.params = functions.trans_params_to_dict(scope_ins)
         # 请求头 和 请求Cookie
         self.headers = functions.trans_headers(scope_ins.headers)
         # 请求的http版本号
@@ -92,31 +95,63 @@ class Request(BaseRequest):
         # 请求主机IP或者HOST名称
         self.host = scope_ins.server[0]
 
-    def do_request(self):
+        # 解析请求数据
+        if self.method.upper() in [constant.RequestMethod.RM_POST, constant.RequestMethod.RM_PUT]:
+            stream, self.data, self.files = await functions.trans_body_data(receiver=recv, headers=self.headers)
+
+        # 初始化 SERVER_NAME，如果没有设置SERVER_NAME，那么默认使用HOST:PORT作为SERVER_NAME
+        if self.get_app().settings.SERVER_NAME is None:
+            self.get_app().settings.SERVER_NAME = f"{scope_ins.server[0]}:{scope_ins.server[1]}"
+
+        # 初始化路由适配
+        mapper = self.get_app().router_mapper.mapper
+        self.__url_adapter = self.get_app().router_mapper.mapper.bind(
+            server_name=self.get_app().settings.SERVER_NAME,
+            subdomain=mapper.default_subdomain or None,
+            url_scheme=self.scheme,
+            query_args=self.params,
+            path_info=self.path
+        )
+
+    async def do_request(self):
         """
         执行请求，并且返回对应的数据
         :return:
         """
-        # 获取URL MAPPING路由对应的View类
-        view_func, kwargs, args, find = self.get_app().router_adapter.test(path=self.path)
-        if view_func:  # 执行对应的方法，并且返回对应的数据
-            if callable(view_func):
-                resp = view_func(self, *args, **kwargs)
-                if isinstance(resp, str):
-                    return response.HttpResponse(content=resp).encode()
-                elif isinstance(resp, dict):
-                    return response.JsonResponse(content=resp).encode()
-                elif isinstance(resp, response.BaseResponse):
-                    return resp
+        try:
+            # 匹配理由表
+            name, args = self.__url_adapter.match()
+            # 获取视图方法
+            view_func = self.get_app().router_mapper.get_view_func(name=name)
+            # 执行对应的方法，并且返回对应的数据
+            if view_func:
+                if callable(view_func):
+                    resp = await view_func(self, **args)
+                    if isinstance(resp, str):
+                        return response.HttpResponse(content=resp).encode()
+                    elif isinstance(resp, dict):
+                        return response.JsonResponse(content=resp).encode()
+                    elif isinstance(resp, response.BaseResponse):
+                        return resp
+                else:
+                    # 视图方法不能被执行
+                    raise exc.ViewError("View func is an unknown type object.")
             else:
-                raise exc.ViewError("View func is an unknown type object.")
-        else:  # 未找到返回404状态
-            raise exc.PageNotFoundError
+                # 未找到对应的视图方法
+                raise exc.ViewError()
+        except NotFound as e:
+            # 未找到对应的路由
+            raise exc.PageNotFoundError(e)
 
     def push(self):
         top = g.g_context.cur_stack(identity=g.GlobalContext.REQ_IDENTIFY)
         if top is not None and top.preserved:
             top.pop(top._preserved_exc)
+
+        _app = g.g_context.cur_stack(identity=g.GlobalContext.APP_IDENTIFY)
+        if _app is None or _app != self.get_app():
+            g.g_context.push_stack(self.get_app(), identity=g.GlobalContext.APP_IDENTIFY)
+
         g.g_context.push_stack(self, identity=g.GlobalContext.REQ_IDENTIFY)
 
     def pop(self):

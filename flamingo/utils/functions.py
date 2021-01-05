@@ -1,6 +1,9 @@
 from importlib import import_module
 import json
+import re
+from urllib import parse
 from flamingo.utils import exc
+from flamingo.utils import parser
 
 
 def import_module_string(mod_str: str):
@@ -45,11 +48,43 @@ def safe_json_loads(data):
         return None
 
 
-def trans_str_to_dict(b_data, decoding="UTF-8"):
-    if b_data:
-        return safe_json_loads(data=b_data.decode(decoding))
+async def read_body(receive):
+    """
+    获取传递过来的请求body数据
+    """
+    body = b''
+    more_body = True
+
+    while more_body:
+        message = await receive()
+        body += message.get('body', b'')
+        more_body = message.get('more_body', False)
+
+    return body
+
+
+async def trans_body_data(receiver, headers, decoding="UTF-8"):
+    """
+    将请求的数据转换成字典数据
+    :param receiver: 数据流
+    :param headers: 请求头数据
+    :param decoding: 解码方式
+    :return:
+    """
+    if receiver:
+        return await parser.FormParser(headers=headers, charset=decoding, receiver=receiver).parse()
     else:
         return None
+
+
+def trans_params_to_dict(scope_ins, decoding="UTF-8"):
+    """
+    将字节的query_string转换成字典类型
+    :param scope_ins: 字节原始参数
+    :param decoding: 编码格式
+    :return:
+    """
+    return parser.ParseQueryParser(scope=scope_ins, charset=decoding).parse()
 
 
 def get_url_name(view_func, name):
@@ -107,4 +142,3 @@ def trans_headers(headers):
         for k, v in headers
     }
     return headers
-
